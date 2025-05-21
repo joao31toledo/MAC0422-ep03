@@ -1,6 +1,6 @@
     Leitura do arquivo PGM de entrada: O programa deve conseguir ler o arquivo que descreve o estado inicial da memória.
     Cópia do arquivo PGM: O programa deve copiar o arquivo PGM de entrada para um arquivo de saída.
-    
+
     Implementação dos algoritmos de alocação:
         First Fit
         Next Fit
