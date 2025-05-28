@@ -80,10 +80,6 @@ long calcula_offset(int posicao) {
     // 4. Somar o offset do cabeçalho, das linhas anteriores e da posição na linha
     long offset_total = header_size + offset_linhas_anteriores + offset_na_linha;
 
-    // Mensagem de debug para rastrear os cálculos (útil para testar)
-    fprintf(stderr, "DEBUG (calcula_offset): Posicao linear %d -> Linha_arquivo %d, Coluna_na_linha %d -> Offset total: %ld bytes\n",
-            posicao, linha_arquivo, coluna_na_linha, offset_total);
-
     return offset_total;
 }
 
@@ -135,7 +131,6 @@ int ler_pixel(int posicao) {
         // mas é importante ser logado para debug.
     }
 
-    fprintf(stderr, "DEBUG (ler_pixel): Pixel na posicao %d lido: %d\n", posicao, valor_pixel);
     return valor_pixel;
 }
 
@@ -200,8 +195,51 @@ void escreve_pixel(int posicao, int valor_pixel) {
         perror("ERRO (escreve_pixel): Falha ao restaurar a posicao do ponteiro do arquivo apos a escrita");
         // Este é um erro importante de ser logado.
     }
+}
 
-    fprintf(stderr, "DEBUG (escreve_pixel): Pixel na posicao %d escrito com valor: %d\n", posicao, valor_pixel);
+void compacta_memoria() {
+
+    // Validação inicial: verifica se o arquivo de memória está aberto
+    if (saida_file == NULL) {
+        fprintf(stderr, "ERRO (compacta_memoria): Arquivo de saida (memoria simulada) nao esta aberto. Abortando compactacao.\n");
+        return;
+    }
+
+    int ponteiro_leitura = 0; // Varre toda a memoria para encontrar pixels ocupados
+    int ponteiro_escrita = 0; // Aponta para a proxima posicao onde um pixel ocupado deve ser escrito
+    int valor_pixel;          // Armazena o valor do pixel lido
+
+    // --- Primeira Passagem: Mover blocos ocupados para o início ---
+    // O ponteiro_leitura avanca por todas as posicoes
+    while (ponteiro_leitura < TOTAL_PIXELS) {
+        valor_pixel = ler_pixel(ponteiro_leitura); // Le o pixel na posicao atual de leitura
+
+        // Se ler_pixel retornar -1, indica um erro grave.
+        // Nao podemos continuar com a compactacao se nao conseguimos ler a memoria.
+        if (valor_pixel == -1) {
+            fprintf(stderr, "ERRO (compacta_memoria): Falha ao ler pixel na posicao %d. Abortando compactacao.\n", ponteiro_leitura);
+            return;
+        }
+
+        if (valor_pixel == 0) { // Se o pixel lido estiver OCUPADO (preto)
+            // Escrevemos este pixel preto na posicao atual de escrita.
+            // (Se ponteiro_leitura == ponteiro_escrita, eh uma escrita "no lugar")
+            escreve_pixel(ponteiro_escrita, 0); 
+            ponteiro_escrita++; // Avanca o ponteiro de escrita para a proxima vaga para um ocupado
+        }
+        // Se valor_pixel for 255 (branco), nao fazemos nada com ele nesta fase.
+        // Apenas continuamos a procurar por pixels ocupados.
+
+        ponteiro_leitura++; // Sempre avanca o ponteiro de leitura
+    }
+
+    // --- Segunda Passagem: Preencher o restante com blocos livres ---
+    // Apos a primeira passagem, 'ponteiro_escrita' indica a primeira posicao
+    // que deve ser preenchida com um pixel branco (livre).
+    while (ponteiro_escrita < TOTAL_PIXELS) {
+        escreve_pixel(ponteiro_escrita, 255); // Escreve 255 (branco/livre)
+        ponteiro_escrita++; // Avanca para a proxima posicao
+    }
 }
 
 long obter_tamanho_cabecalho() {
@@ -247,54 +285,12 @@ int main(int argc, char *argv[]) {
         if (sscanf(line_buffer, "%d %d", &line_num, &mem_size) == 2) {
             // Futuramente: chamar alocar(line_num, mem_size); que usará as globais
         }
-        else if (sscanf(line_buffer, "%d %s", &line_num, command_str) == 2 &&
-                 strcmp(command_str, "COMPACTAR") == 0) {
-            // Futuramente: chamar compactar(line_num); que usará as globais
+        else if (sscanf(line_buffer, "%d %s", &line_num, command_str) == 2 && strcmp(command_str, "COMPACTAR") == 0) {
+            compacta_memoria();
         }
     }
 
-    int valor_lido;
 
-    // Teste 1: Ler o pixel 0 (primeiro pixel)
-    valor_lido = ler_pixel(0);
-    fprintf(stderr, "Valor do pixel na posicao 0: (esperado = 0) %d\n", valor_lido);
-
-    // Teste 2: Ler o pixel 15 (ultimo da primeira linha)
-    valor_lido = ler_pixel(15);
-    fprintf(stderr, "Valor do pixel na posicao 15: (esperado = 0) %d\n", valor_lido);
-
-    // Teste 3: Ler o pixel 16 (primeiro da segunda linha)
-    valor_lido = ler_pixel(16);
-    fprintf(stderr, "Valor do pixel na posicao 16: (esperado = 0) %d\n", valor_lido);
-
-    // Teste 4: Ler um pixel no "meio" (ex: 65534)
-    valor_lido = ler_pixel(65534);
-    fprintf(stderr, "Valor do pixel na posicao 65534: (esperado = 255) %d\n", valor_lido);
-
-    // Teste 5: Ler o ultimo pixel (65535)
-    valor_lido = ler_pixel(65535);
-    fprintf(stderr, "Valor do pixel na posicao 65535: (esperado = 255) %d\n", valor_lido);
-
-    /////////////////////////////////////////////////////////////////////////////////////////////
-    escreve_pixel(0, 255);
-    valor_lido = ler_pixel(0);
-    fprintf(stderr, "Valor do pixel na posicao 0 após escrita: (esperado = 255) %d\n", valor_lido);
-
-    escreve_pixel(15,255);
-    valor_lido = ler_pixel(15);
-    fprintf(stderr, "Valor do pixel na posicao 15 após escrita: (esperado = 255) %d\n", valor_lido);
-
-    escreve_pixel(16,255);
-    valor_lido = ler_pixel(16);
-    fprintf(stderr, "Valor do pixel na posicao 16 após escrita: (esperado = 255) %d\n", valor_lido);
-    
-    escreve_pixel(65534,0);
-    valor_lido = ler_pixel(65534);
-    fprintf(stderr, "Valor do pixel na posicao 65534 após escrita: (esperado = 0) %d\n", valor_lido);
-
-    escreve_pixel(65535,0);
-    valor_lido = ler_pixel(65535);
-    fprintf(stderr, "Valor do pixel na posicao 65535 após escrita: (esperado = 0) %d\n", valor_lido);
 
     fclose(saida_file);
     fclose(trace_file);
