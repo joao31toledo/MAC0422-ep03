@@ -10,7 +10,9 @@
 
 FILE *saida_file = NULL; 
 long header_size = 0;
+static int inicio_next_fit = 0; 
 FILE *trace_file = NULL;
+int alocacoes_falhas = 0;
 
 
 void copia_conteudo(FILE *arq_entrada) {
@@ -327,7 +329,100 @@ int alocar_first_fit(int tamanho_processo) {
     }
 
     // Se o loop terminou e nenhum bloco adequado foi encontrado
+    alocacoes_falhas++;
     fprintf(stderr, "ERRO (alocar_first_fit): Nao foi possivel alocar processo de tamanho %d. Memoria cheia ou muito fragmentada.\n",
+            tamanho_processo);
+    return -1; // Falha na alocação
+}
+
+int alocar_next_fit(int tamanho_processo) {
+    fprintf(stderr, "DEBUG (alocar_next_fit): Tentando alocar %d unidades usando Next-Fit. (Inicio da busca: %d)\n",
+            tamanho_processo, inicio_next_fit);
+
+    // 1. Validação inicial dos parâmetros
+    if (tamanho_processo <= 0 || tamanho_processo > TOTAL_PIXELS) {
+        fprintf(stderr, "ERRO (alocar_next_fit): Tamanho de processo invalido: %d. Deve ser entre 1 e %d.\n",
+                tamanho_processo, TOTAL_PIXELS);
+        return -1;
+    }
+    if (saida_file == NULL) {
+        fprintf(stderr, "ERRO (alocar_next_fit): Arquivo de saida (memoria simulada) nao esta aberto. Abortando alocacao.\n");
+        return -1;
+    }
+
+    int posicao_inicial_bloco_livre_atual = -1; // Guarda o início do bloco livre atual
+    int tamanho_bloco_livre_atual = 0;    // Conta o tamanho do bloco livre atual
+    int valor_pixel;                      // Armazena o valor do pixel lido
+
+    // Contagem total de pixels a serem verificados (uma volta completa na memória)
+    // Isso garante que verificamos toda a memória, começando do inicio_next_fit
+    // e dando a volta se necessário.
+    for (int count = 0; count < TOTAL_PIXELS; count++) {
+        // Calcula o índice real do pixel de forma circular na memória
+        int current_pixel_index = (inicio_next_fit + count) % TOTAL_PIXELS;
+
+        valor_pixel = ler_pixel(current_pixel_index); // Lê o estado do pixel
+
+        // Verifica se houve erro na leitura do pixel. Se sim, aborta.
+        if (valor_pixel == -1) {
+            fprintf(stderr, "ERRO (alocar_next_fit): Falha ao ler pixel na posicao %d. Abortando busca.\n", current_pixel_index);
+            return -1;
+        }
+
+        if (valor_pixel == 255) { // Se o pixel atual é BRANCO (LIVRE)
+            if (posicao_inicial_bloco_livre_atual == -1) {
+                // Se estamos começando um novo bloco livre contíguo
+                posicao_inicial_bloco_livre_atual = current_pixel_index;
+            }
+            tamanho_bloco_livre_atual++; // Incrementa o contador do tamanho do bloco livre atual
+        } else { // Se o pixel atual é PRETO (OCUPADO), o bloco livre atual foi interrompido
+            // Avalia o bloco livre que ACABOU de ser encontrado
+            if (posicao_inicial_bloco_livre_atual != -1 && tamanho_bloco_livre_atual >= tamanho_processo) {
+                // Encontramos um bloco livre que serve!
+                
+                // 3. Alocar o processo: marcar os pixels como ocupados (preto)
+                for (int j = 0; j < tamanho_processo; j++) {
+                    // Cuidado com a alocacao circular - embora o Next-Fit busque circularmente,
+                    // a alocacao em si eh sequencial a partir da posicao encontrada.
+                    // A alocacao nao "dá a volta" no meio de um processo.
+                    escreve_pixel(posicao_inicial_bloco_livre_atual + j, 0); // Marca como ocupado
+                }
+
+                // ATUALIZA A POSIÇÃO DE INÍCIO PARA A PRÓXIMA BUSCA (CHAVE DO NEXT-FIT)
+                inicio_next_fit = (posicao_inicial_bloco_livre_atual + tamanho_processo) % TOTAL_PIXELS;
+                
+                fprintf(stderr, "DEBUG (alocar_next_fit): Alocado processo de tamanho %d na posicao %d. Proxima busca iniciara em %d.\n",
+                        tamanho_processo, posicao_inicial_bloco_livre_atual, inicio_next_fit);
+                return posicao_inicial_bloco_livre_atual; // Retorna a posicao inicial da alocacao
+            }
+            // Se o bloco livre encontrado não foi grande o suficiente, ou se não havia bloco livre,
+            // resetamos as variáveis para procurar o próximo bloco livre.
+            posicao_inicial_bloco_livre_atual = -1;
+            tamanho_bloco_livre_atual = 0;
+        }
+    }
+
+    // 4. Verificação final: Após o loop completo (uma volta na memória),
+    // se o último bloco livre avaliado (que chegou até o fim da memória 'virtualmente')
+    // ainda não foi considerado, ele precisa ser avaliado agora.
+    // Isso acontece se a memória termina com um bloco livre que é o "melhor" para alocar.
+    if (posicao_inicial_bloco_livre_atual != -1 && tamanho_bloco_livre_atual >= tamanho_processo) {
+        // Encontramos o bloco! Agora, marcamos os pixels como ocupados.
+        for (int j = 0; j < tamanho_processo; j++) {
+            escreve_pixel(posicao_inicial_bloco_livre_atual + j, 0); // Marca como ocupado
+        }
+        
+        // ATUALIZA A POSIÇÃO DE INÍCIO PARA A PRÓXIMA BUSCA
+        inicio_next_fit = (posicao_inicial_bloco_livre_atual + tamanho_processo) % TOTAL_PIXELS;
+        
+        fprintf(stderr, "DEBUG (alocar_next_fit): Alocado processo de tamanho %d na posicao %d (fim da volta). Proxima busca iniciara em %d.\n",
+                tamanho_processo, posicao_inicial_bloco_livre_atual, inicio_next_fit);
+        return posicao_inicial_bloco_livre_atual;
+    }
+
+    // Se o loop terminou e nenhum bloco adequado foi encontrado
+    alocacoes_falhas++;
+    fprintf(stderr, "ERRO (alocar_next_fit): Nao foi possivel alocar processo de tamanho %d. Memoria cheia ou muito fragmentada.\n",
             tamanho_processo);
     return -1; // Falha na alocação
 }
@@ -398,6 +493,7 @@ int alocar_best_fit(int tamanho_processo) {
 
     // 5. Alocação (se um bloco adequado foi encontrado ao final da busca)
     if (best_fit_posicao_inicial == -1) {
+        alocacoes_falhas++;
         fprintf(stderr, "ERRO (alocar_best_fit): Nao foi possivel alocar processo de tamanho %d. Memoria cheia ou muito fragmentada.\n",
                 tamanho_processo);
         return -1; // Falha na alocação
@@ -413,7 +509,116 @@ int alocar_best_fit(int tamanho_processo) {
     }
 }
 
+int alocar_worst_fit(int tamanho_processo) {
+    fprintf(stderr, "DEBUG (alocar_worst_fit): Tentando alocar %d unidades usando Worst-Fit.\n", tamanho_processo);
+
+    // 1. Validação inicial dos parâmetros
+    if (tamanho_processo <= 0 || tamanho_processo > TOTAL_PIXELS) {
+        fprintf(stderr, "ERRO (alocar_worst_fit): Tamanho de processo invalido: %d. Deve ser entre 1 e %d.\n",
+                tamanho_processo, TOTAL_PIXELS);
+        return -1;
+    }
+    if (saida_file == NULL) {
+        fprintf(stderr, "ERRO (alocar_worst_fit): Arquivo de saida (memoria simulada) nao esta aberto. Abortando alocacao.\n");
+        return -1;
+    }
+
+    // 2. Variáveis para acompanhar o MELHOR bloco (ou seja, o MAIOR que serve) encontrado até agora
+    int worst_fit_posicao_inicial = -1;
+    int worst_fit_tamanho = 0; // Inicializa com o menor valor possível para um tamanho (0)
+
+    // Variáveis temporárias para o bloco livre atual que está sendo analisado
+    int posicao_inicial_bloco_livre_atual = -1;
+    int tamanho_bloco_livre_atual = 0;
+    int valor_pixel;
+
+    // 3. Loop principal: Percorrer a memória pixel por pixel para encontrar todos os blocos livres
+    for (int i = 0; i < TOTAL_PIXELS; i++) {
+        valor_pixel = ler_pixel(i); // Lê o estado do pixel na posição 'i'
+
+        // Verifica se houve erro na leitura do pixel. Se sim, aborta.
+        if (valor_pixel == -1) {
+            fprintf(stderr, "ERRO (alocar_worst_fit): Falha ao ler pixel na posicao %d. Abortando busca por bloco.\n", i);
+            return -1;
+        }
+
+        if (valor_pixel == 255) { // Se o pixel atual é BRANCO (LIVRE)
+            if (posicao_inicial_bloco_livre_atual == -1) {
+                // Se estamos começando um novo bloco livre contíguo
+                posicao_inicial_bloco_livre_atual = i;
+            }
+            tamanho_bloco_livre_atual++; // Incrementa o contador do tamanho do bloco livre atual
+        } else { // Se o pixel atual é PRETO (OCUPADO), o bloco livre atual foi interrompido
+            // Avalia o bloco livre que ACABOU de ser encontrado
+            if (posicao_inicial_bloco_livre_atual != -1 && tamanho_bloco_livre_atual >= tamanho_processo) {
+                // Se este bloco livre serve E é MAIOR que o maior encontrado até agora
+                if (tamanho_bloco_livre_atual > worst_fit_tamanho) {
+                    worst_fit_tamanho = tamanho_bloco_livre_atual;
+                    worst_fit_posicao_inicial = posicao_inicial_bloco_livre_atual;
+                }
+            }
+            // Reseta as variáveis para procurar o próximo bloco livre
+            posicao_inicial_bloco_livre_atual = -1;
+            tamanho_bloco_livre_atual = 0;
+        }
+    }
+
+    // 4. Verificação final: Após o loop, o último bloco livre (se houver) ainda precisa ser avaliado.
+    // A lógica dentro do 'else' (pixel preto) só é ativada quando um bloco livre é interrompido.
+    // Se a memória termina com um bloco livre, ele não teria sido avaliado.
+    if (posicao_inicial_bloco_livre_atual != -1 && tamanho_bloco_livre_atual >= tamanho_processo) {
+        if (tamanho_bloco_livre_atual > worst_fit_tamanho) {
+            worst_fit_tamanho = tamanho_bloco_livre_atual;
+            worst_fit_posicao_inicial = posicao_inicial_bloco_livre_atual;
+        }
+    }
+
+    // 5. Alocação (se um bloco adequado foi encontrado ao final da busca)
+    if (worst_fit_posicao_inicial == -1) {
+        alocacoes_falhas++;
+        fprintf(stderr, "ERRO (alocar_worst_fit): Nao foi possivel alocar processo de tamanho %d. Memoria cheia ou muito fragmentada.\n",
+                tamanho_processo);
+        return -1; // Falha na alocação
+    } else {
+        // Encontramos o PIOR AJUSTE! Agora, marcamos os pixels como ocupados.
+        for (int j = 0; j < tamanho_processo; j++) {
+            escreve_pixel(worst_fit_posicao_inicial + j, 0); // Marca como ocupado (preto)
+        }
+
+        fprintf(stderr, "DEBUG (alocar_worst_fit): Alocado processo de tamanho %d na posicao %d (Worst-Fit).\n",
+                tamanho_processo, worst_fit_posicao_inicial);
+        return worst_fit_posicao_inicial; // Retorna a posicao inicial da alocacao
+    }
+}
+
+int alocar(int tipo_algoritmo, int tamanho_processo) {
+    fprintf(stderr, "DEBUG (alocar): Recebida requisicao para alocar %d unidades com algoritmo %d.\n",
+            tamanho_processo, tipo_algoritmo);
+
+    // Validações básicas (se necessário, adicione mais, como tamanho_processo > 0)
+    if (saida_file == NULL) {
+        fprintf(stderr, "ERRO (alocar): Arquivo de saida (memoria simulada) nao esta aberto. Abortando alocacao.\n");
+        return -1;
+    }
+
+    // O switch/case para chamar o algoritmo correto
+    switch (tipo_algoritmo) {
+        case 1:
+            return alocar_first_fit(tamanho_processo);
+        case 2:
+            return alocar_best_fit(tamanho_processo);
+        case 3:
+            return alocar_worst_fit(tamanho_processo);
+        case 4:
+            return alocar_next_fit(tamanho_processo);
+        default:
+            fprintf(stderr, "ERRO (alocar): Tipo de algoritmo invalido: %d. Esperado 1 a 4.\n", tipo_algoritmo);
+            return -1; // Sinaliza erro por tipo de algoritmo inválido
+    }
+}
+
 int main(int argc, char *argv[]) {
+    int tipo_algoritmo = atoi(argv[1]);
     const char *entrada_path = argv[2];
     const char *trace_path = argv[3];
     const char *saida_path = argv[4];
@@ -439,7 +644,7 @@ int main(int argc, char *argv[]) {
 
     while (fgets(line_buffer, sizeof(line_buffer), trace_file) != NULL) {
         if (sscanf(line_buffer, "%d %d", &line_num, &mem_size) == 2) {
-            alocar_best_fit(mem_size);
+            alocar(tipo_algoritmo, mem_size);
         }
         else if (sscanf(line_buffer, "%d %s", &line_num, command_str) == 2 && strcmp(command_str, "COMPACTAR") == 0) {
             compacta_memoria();
@@ -447,7 +652,7 @@ int main(int argc, char *argv[]) {
     }
 
 
-
+    printf("%d\n", alocacoes_falhas);
     fclose(saida_file);
     fclose(trace_file);
 
