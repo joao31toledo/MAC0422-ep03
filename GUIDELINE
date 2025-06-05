@@ -1,29 +1,24 @@
-    Leitura do arquivo PGM de entrada: O programa deve conseguir ler o arquivo que descreve o estado inicial da memória.
-    Cópia do arquivo PGM: O programa deve copiar o arquivo PGM de entrada para um arquivo de saída.
+trace-firstfit.txt
+    - first-fit -  (45/1000) 4.50% - (29/1000) 2.90% - (/1000) %
+    -  next-fit -  (94/1000) 9.40% - (/1000) % - (/1000) % 
+    -  best-fit -  (27/1000) 2.70% - (10/1000) 1.00% - (/1000) % 
+    - worst-fit - (156/1000) 15.6% - (/1000) % - (/1000) %
 
-    Implementação dos algoritmos de alocação:
-        First Fit
-        Next Fit
-        Best Fit
-        Worst Fit
+trace-bestfit.txt
+    - first-fit - (/1000) % - (/1000) % - (/1000) % 
+    -  next-fit - (/1000) % - (/1000) % - (/1000) %
+    -  best-fit - (/1000) % - (/1000) % - (/1000) %
+    - worst-fit - (/1000) % - (/1000) % - (/1000) %
 
-    Leitura do arquivo de trace: O programa deve ler o arquivo que contém a sequência de alocações e compactações a serem simuladas.
-    Alocação de memória: O programa deve alocar unidades de memória de acordo com os algoritmos e as requisições do arquivo de trace.
-    Compactação de memória: O programa deve compactar a memória quando solicitado no arquivo de trace.
-    Escrita do arquivo PGM de saída: O programa deve escrever o estado final da memória em um novo arquivo PGM.
-    Registro de falhas: O programa deve registrar as alocações que não puderam ser satisfeitas.
-    Impressão de estatísticas: O programa deve imprimir o número total de alocações que falharam.
+trace-worstfit
+    - first-fit - (/1000) % - (/1000) % - (/1000) % 
+    -  next-fit - (/1000) % - (/1000) % - (/1000) %
+    -  best-fit - (/1000) % - (/1000) % - (/1000) %
+    - worst-fit - (/1000) % - (/1000) % - (/1000) %
 
-Requisitos Não Funcionais
 
-Descrevem as restrições e qualidades do sistema. No seu EP, eles detalham como o simulador deve ser implementado e quais restrições ele deve seguir.
-    Linguagem de programação: C
-    Sistema Operacional: GNU/Linux
-    Bibliotecas: Apenas as bibliotecas padrão do compilador gcc
-    Manipulação do arquivo PGM: Manipulação direta, sem carregar o arquivo inteiro na memória
-    Tamanho da memória: 65536 unidades de alocação
-    Formato do arquivo PGM: Conforme especificado no enunciado
-    Formato do arquivo de trace: Conforme especificado no enunciado
-    Execução do programa: O programa deve ser executado via linha de comando, com argumentos específicos
-    Formato de entrega: Arquivo .tar.gz com conteúdo específico
-    Trabalho individual: O EP deve ser desenvolvido individualmente
+trace-nextfit.txt
+    - first-fit - (/1000) % - (/1000) % - (/1000) % 
+    -  next-fit - (/1000) % - (/1000) % - (/1000) %
+    -  best-fit - (/1000) % - (/1000) % - (/1000) %
+    - worst-fit - (/1000) % - (/1000) % - (/1000) %
