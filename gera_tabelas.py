@@ -30,27 +30,27 @@ import sys
 DADOS_BRUTOS_DOS_TESTES = {
     "trace_firstfit": {
         "First-Fit": [106, 103, 86, 100, 94],
-        "Next-Fit": [106, 105, 86, 98, 95],
-        "Best-Fit": [91, 86, 74, 82, 75],
-        "Worst-Fit": [89, 91, 76,83, 77],
+        "Next-Fit":  [106, 105, 86,  98, 95],
+        "Best-Fit":  [ 91,  86, 74,  82, 75],
+        "Worst-Fit": [ 89,  91, 76,  83, 77],
     },
     "trace_bestfit": {
-        "First-Fit": [],
-        "Next-Fit": [],
-        "Best-Fit": [],
-        "Worst-Fit": [],
+        "First-Fit": [369, 374, 359, 368, 353],
+        "Next-Fit":  [373, 381, 362, 370, 354],
+        "Best-Fit":  [321, 339, 314, 321, 315],
+        "Worst-Fit": [341, 348, 327, 336, 327],
     },
     "trace_worstfit": {
-        "First-Fit": [],
-        "Next-Fit": [],
-        "Best-Fit": [],
-        "Worst-Fit": [],
+        "First-Fit": [0, 0, 0, 0, 0],
+        "Next-Fit":  [0, 0, 0, 0, 0],
+        "Best-Fit":  [0, 0, 0, 0, 0],
+        "Worst-Fit": [0, 0, 0, 0, 0],
     },
     "trace_nextfit": {
-        "First-Fit": [],
-        "Next-Fit": [],
-        "Best-Fit": [],
-        "Worst-Fit": [],
+        "First-Fit": [93, 91, 108, 71, 93],
+        "Next-Fit": [105, 93, 109, 73, 93],
+        "Best-Fit": [91, 75, 94, 65, 78],
+        "Worst-Fit": [94, 73, 96, 65, 84],
     },
 }
 

@@ -129,7 +129,7 @@ if __name__ == "__main__":
         sys.exit(1)
 
     trace_generators = {
-        1: ("trace-firstfit.txt", generate_first_fit_trace),
+        1: ("trace-firstfit5.txt", generate_first_fit_trace),
         2: ("trace-bestfit.txt", generate_best_fit_trace),
         3: ("trace-worstfit.txt", generate_worst_fit_trace),
         4: ("trace-nextfit.txt", generate_next_fit_trace),
